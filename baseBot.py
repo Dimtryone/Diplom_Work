@@ -6,7 +6,7 @@ from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 from models import create_tables, UserInfo, ValueSearch, BlackList
-import psycopg2
+
 from datetime import datetime
 
 
@@ -17,7 +17,7 @@ class BaseBot:
 
     vk_session = None
     # метка доступа к API
-    vk_api_access = None
+    vk_api_access = None  ## DELETE????
     # сессия приложения
     app_session = None
     authorized = False
@@ -48,14 +48,16 @@ class BaseBot:
             token_dict['name_BD'] = parametrs[10]
             token_dict['name_host'] = parametrs[11]
             token_dict['num_host'] = parametrs[12]
+            token_dict['ID_US'] = parametrs[14]
+            token_dict['PASSWORD_US'] = parametrs[15]
         return token_dict
 
-    def get_auth_group(self, tokens=self.get_tokens()):
+    def get_auth_group(self):
         """
         Авторизация группы использует переменную TOKEN_GROUP, ее получаем из файла
         :return: возможность работать с API
         """
-        token_dict = tokens
+        token_dict = self.get_tokens()
         TOKEN_GROUP = token_dict['TOKEN_GROUP']
         try:
             self.vk_session = vk_api.VkApi(token=TOKEN_GROUP)
@@ -69,21 +71,41 @@ class BaseBot:
         Авторизация приложения для поиска людей. Использует переменную ID_APP, ее получаем из файла
         :return: сессия с возможностью работать с API от приложения
         """
-        token_dict = self.get_tokens()
-        ID_APP = token_dict['ID_APP']
-        SCOPE='PHOTO'
-        self.app_session = vk_api.VkApi(app_id=ID_APP, scope=SCOPE)
+        # token_dict = self.get_tokens()
+        # ID_APP = token_dict['ID_APP']
+        # SCOPE='PHOTO'
+        token = 'vk1.a.6kP4Ss8SUhzWf9U_IlTMyjBaf-yJYvnp-VKxySTzadoGYRNs0WhwdQ5Vsc0_PSTG9UllcxlqmyykCqT6JgVtChW2N9ywW86YR0qvqR1J6l2Jri-Q2DReWkYc5T7aBAveA8x1sKK7HuWWD_gjVNoeuCYfNYjHcc52PgN2lzvmt0NwPOB5x8YDtbV485WTgh50GVpOpJ99cy20hg_R5cZ51w'
+        #self.app_session = vk_api.VkApi(token=token)
         try:
-            self.app_session.get_api()  #code_auth(ID_APP, redirect_url)
-        except vk_api.AuthError as error_msg:
+            self.app_session = vk_api.VkApi(token=token)
+            return self.app_session #= self.app_session.auth(token_only=True)  #code_auth(ID_APP, redirect_url)
+        except Exception or vk_api.AuthError as error_msg:
             print('error AuthError')
 
+        # login = token_dict['ID_US']
+        # password = token_dict['PASSWORD_US']
+        # try:
+        #     self.app_session = vk_api.VkApi(login=login, password=password)
+        #     self.app_session = self.app_session.auth(token_only=True)
+        #     return self.self.app_session
+        # except Exception as error:
+        #     print('Unable to connect to the API_VK  US_ID')
+        #     return None
 
-            self.app_session.auth()
-            return self.app_session.get_api()  # !!!!!!&&&&
-        except Exception as error:
-            print('Unable to connect to the API_VK (app)')
-            return None
+        # login, password = 'python@vk.com', 'mypassword'
+        # vk_session = vk_api.VkApi(login, password)
+
+        # try:
+        #     vk_session.authorization()
+        # except vk_api.AuthorizationError as error_msg:
+        #     print(error_msg)
+        #     return
+
+        #     self.app_session.auth()
+        #     return self.app_session.get_api()  # !!!!!!&&&&
+        # except Exception as error:
+        #     print('Unable to connect to the API_VK (app)')
+        #     return None
 
     def send_message(self, user_id, message, keyboard=None):
         """
@@ -97,7 +119,7 @@ class BaseBot:
             print("Please check your Token")
             return
         if keyboard != None:
-            param= {"user_id": user_id, "message": message, "random_id": random.randint(1, 10000),
+            param = {"user_id": user_id, "message": message, "random_id": random.randint(1, 10000),
                         "keyboard": keyboard}
         else:
             param = {"user_id": user_id, "message": message, "random_id": random.randint(1, 10000)}
@@ -138,7 +160,7 @@ class BaseBot:
 
         DSN = f"postgresql://{username}:{password_BD}@{name_host}:{num_host}/{name_BD}"
         engine = sqlalchemy.create_engine(DSN, echo=True, future=True)
-        #create_tables(engine)  - деактивирован код по очистке и созданию таблиц в БД
+        #create_tables(engine)  #- деактивирован код по очистке и созданию таблиц в БД
         Session = sessionmaker(bind=engine)
         session = Session()
 
@@ -177,8 +199,10 @@ class BaseBot:
 class LongPollBot(BaseBot):
 
 
-    COMMANDS = ["START", "FINISH", "HELP"]
+    COMMANDS = ["START", "FINISH", "HELP", "ИСКАТЬ"]
     KEYBOARDS = ["МУЖЧИНА", "ЖЕНЩИНА", "НЕ ЖЕНАТ/НЕ ЗАМУЖЕМ", "В АКТИВНОМ ПОИСКЕ", "ВСЁ СЛОЖНО", "НЕ УКАЗАНО"]
+    COUNTRIES = ['РОССИЯ', 'БЕЛОРУССИЯ', 'УКРАИНА', 'РОС', 'РОСИЯ', 'БЕЛ', 'БЕЛОРУСИЯ', 'УКР']
+    AGIES = ["ОТ 18 ДО 21", "ОТ 22 ДО 25", "ОТ 30 ДО 35", "ОТ 36 ДО 40", "ОТ 41 ДО 50", "ОТ 50 ДО 65"]
 
     def __init__(self):
         super(LongPollBot, self).__init__()
@@ -196,53 +220,82 @@ class LongPollBot(BaseBot):
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
                 text = event.text.upper()
                 user_id = event.user_id
-                session = self.get_session_DB()
-                q = session.query(UserInfo.first_name).filter(UserInfo.user_id == user_id).all()  #user_id уникальным, поэтому в момент поиска выйдет одно значение.
-                name_us = q
-                session.close()
+                city_id = self.get_city_id_from_DB(user_id)
+                name_us = self.get_name_user_from_DB(user_id)
                 ### Добавить Фичу про диалог, если пользователь будет отправлять не валидные запросы
                 # if text not in self.COMMANDS and text not in self.KEYBOARDS
                 if text == "START":
                     info = self.get_info_user(user_id)
                     if info == False:
-                        self.send_message(user_id, "Please try again")
+                        self.send_message(user_id, "Пожалуйста, попробуйте снова")
                     else:
                         self.tell_start(user_id, info)
                         request_res = info.result
                         self.save_database(request_res)
                 if text == "FINISH":
-                    message = "Буду снова рад видеть тебя"
-                    self.send_message(user_id, message)
+                    self.tell_goodbye(user_id)
                 if text == "HELP":
                     self.tell_help(user_id)
-                if name_us == []:
+                if name_us == [] and text not in self.COMMANDS:
                     self.tell_hello(user_id)
-                else:
-                    name_us = name_us[0][0]
                 if name_us != [] and (text == "МУЖЧИНА" or text == "ЖЕНЩИНА"):
                     self.set_sex_for_search(user_id, text)
                     self.tell_choice_status(user_id)
                 if name_us != [] and text in ["НЕ ЖЕНАТ/НЕ ЗАМУЖЕМ", "В АКТИВНОМ ПОИСКЕ", "ВСЁ СЛОЖНО", "НЕ УКАЗАНО"]:
                     self.set_status_for_search(user_id, text)
-                    message = f'{name_us} укажи название города. Первым словом должно быть слово "город". Например, город Москва.'
-                    self.send_message(user_id, message)
-                if name_us != [] and "ГОРОД" in text.split():
-                    text = text.split()
-                    name_city = ' '.join(text[1:])
-                    city_id = self.find_city(name_city, user_id)
+                    self.tell_find_city(user_id, name_us)
+                if name_us != [] and text.split()[0] in self.COUNTRIES:
+                    city_id = self.find_city(text, user_id)
                     if city_id == False:
-                        message = f'{name_us} Данный город не найден в базе VK. повторите команду. ' \
-                                  f'Первым должно быть написано слово "город". Например, город Москва.'
-                        self.send_message(user_id, message)
+                        self.not_found_sity(user_id, name_us)
                     if type(city_id) == int:
-                        self.set_city_search(city_id, user_id)
+                        self.set_city_for_search(city_id, user_id)
+                        self.get_age(user_id)
+                if city_id == None and text.isdigit():
+                    self.set_city_for_search(text, user_id)
+                    self.get_age(user_id)
+                if type(city_id) == int and text.isdigit():
+                    self.change_sity(user_id, name_us, text)
+                    self.get_age(user_id)
+                if name_us != [] and text in self.AGIES:
+                    flag = self.set_age_for_search(user_id, text)
+                    if flag == True:
+                        self.find_people(user_id)
+                    else:
+                        self.tell_error(user_id)
 
 
 
-                    keyboard = VkKeyboard()
-                    keyboard.add_button(label="CITY", color=VkKeyboardColor.POSITIVE)
-                    keyboard.add_button(label="STATUS", color=VkKeyboardColor.POSITIVE)
 
+
+    def get_name_user_from_DB(self, user_id):
+        """Функция проверяет наличие пользователя в нашей БД. User_id уникальный, поэтому поиска выдаст одно значение."""
+        session = self.get_session_DB()
+        try:
+            q = session.query(UserInfo.first_name).filter(UserInfo.user_id == user_id).all()
+        except Exception as error:
+            print('не получилось узнать user name. Проблема с БД.')
+        finally:
+            session.close()
+        name_us = q
+        if name_us != []:
+            name_us = name_us[0][0]
+        return name_us
+
+    def get_city_id_from_DB(self, user_id):
+        """Функция проверяет наличие city_id в нашей БД. User_id уникальный, поэтому поиска выдаст одно значение."""
+
+        session = self.get_session_DB()
+        try:
+            q = session.query(ValueSearch.city_id).filter(ValueSearch.user_id == user_id).all()
+        except Exception as error:
+            print('не получилось узнать city_id. Проблема с БД.')
+        finally:
+            session.close()
+        city_id = q
+        if city_id != []:
+            city_id = q[0][0]
+        return city_id
 
     def get_session_DB(self):
         token_dict = self.get_tokens()
@@ -270,10 +323,9 @@ class LongPollBot(BaseBot):
         try:
             session.commit()
         except Exception as error:
-            message = "Не получилось добавить данные для поиска. Возможно сначала надо выбрать команду START"
+            message = "Не получилось добавить пол для поиска. Возможно сначала надо выбрать команду START"
             self.send_message(user_id, message)
         finally:
-            print('Блок кода выполняется всегда!')
             session.close()
 
 
@@ -288,21 +340,50 @@ class LongPollBot(BaseBot):
         try:
             session.commit()
         except Exception as error:
-            message = "Не получилось добавить данные для поиска. Возможно сначала надо выбрать команду START"
+            message = "Не получилось добавить 'статус' для поиска. Возможно сначала надо выбрать команду START"
             self.send_message(user_id, message)
         finally:
             session.close()
 
-    def set_city_search(self, city_id, user_id):
+    def set_city_for_search(self, city_id, user_id):
         """ Сохранение в БД параметра поиска город (идентификатор VK)"""
+
+        city_id = int(city_id)
         session = self.get_session_DB()
         session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update({"city_id": city_id},
                                                                                  synchronize_session='fetch')
         try:
             session.commit()
         except Exception as error:
-            message = "Не получилось добавить данные для поиска. Возможно сначала надо выбрать команду START"
+            message = "Не получилось добавить Город для поиска. Возможно сначала надо выбрать команду START"
             self.send_message(user_id, message)
+        finally:
+            session.close()
+
+    def change_sity_for_search(self, user_id, name_us, text):
+        """Изменяет город, когда пользователь решит изменить кретерии поиска"""
+
+        text = int(text)
+        self.set_city_for_search(text, user_id)
+        message = f'{name_us} город для поиска изменен.'
+        self.send_message(user_id, message)
+
+    def set_age_for_search(self, user_id, text):
+        """Сохранение в БД параметра поиска возраст. API VK: age_from, age_to"""
+
+        text = text.split()
+        age_from = int(text[1])
+        age_to = int(text[3])
+        session = self.get_session_DB()
+        session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update({"age_from": age_from, "age_to": age_to},
+                                                                                 synchronize_session='fetch')
+        try:
+            session.commit()
+            return True
+        except Exception as error:
+            message = "Не получилось добавить возраст для поиска. Возможно сначала надо выбрать команду START"
+            self.send_message(user_id, message)
+            return False
         finally:
             session.close()
 
@@ -320,53 +401,89 @@ class LongPollBot(BaseBot):
         self.send_message(user_id, "Выбери доступный статус для поиска", keyboard=keyboard)
 
 
-    def find_city(self, name_city, user_id):
+    def find_city(self, text, user_id):
         """определяет город из БД VK"""
-        q = name_city
-        param = {'q': q}
-        with vk_api.VkRequestsPool(self.app_session) as pool:  #  self.app_session
+        text = text.split()
+        q = ' '.join(text[1:])
+        countries = {'РОССИЯ': 1, 'БЕЛОРУССИЯ': 3, 'УКРАИНА': 2, 'РОС': 1, 'БЕЛ': 3, 'УКР': 2, 'РОСИЯ': 1, 'БЕЛОРУСИЯ': 3}
+        country_id = countries[text[0]]
+        param = {'country_id': country_id, 'q': q}
+        with vk_api.VkRequestsPool(self.app_session.get_api()) as pool:  #  self.app_session
             request = pool.method('database.getCities', param)
         if request.error == True:
             return False
         else:
             city = request.result
-            if city[0]['count'] == 1:
-                return city[0]['items'][0]['id']
+            count = city['count']
+            if count == 1:
+                return city['items'][0]['id']
             else:
-                message = "Поиск нашел несколько городов с похожим названием. Внимательно изучите список ниже и пришлите" \
-                          " сообщение в формате 'ID цифры', Например, 'id 113056'. или пришлите сообщение ОТКАЗАТЬСЯ ОТ ГОРОДА."
+                message = f'Результат поиска выдал {count} городов с похожим названием. Внимательно изучите список ниже и пришлите' \
+                          ' сообщение в формате "ID цифры", Например, "id 113056". или пришлите сообщение ОТКАЗАТЬСЯ ОТ ГОРОДА.'
                 self.send_message(user_id, message)
-                for item in city[0]['items']:
-                    country = item.get('region')
+                for item in city['items']:
+                    country = item.get('country')
                     region = item.get('region')
                     area = item.get('area')
                     title = item.get('title')
                     id = item.get('id')
-                    message = f'{title} {id} {country} {region} {area}'
-                    self.send_message(user_id, message)
+                    if country != None:
+                        message = f'{title} id города: {id}, регион {country} '
+                        self.send_message(user_id, message)
+                        continue
+                    if region != None or area != None:
+                        message = f'id города {title}: {id}, регион: {region}, область {area}'
+                        self.send_message(user_id, message)
+                    else:
+                        continue
                 return True
 
 
 
+    def find_people(self, user_id):
+        """Функция ищет людей по заданным параметрам."""
 
+        session = self.get_session_DB()
+        try:
+            q = session.query(ValueSearch.user_id, ValueSearch.sex, ValueSearch.age_from, ValueSearch.age_to, ValueSearch.status, ValueSearch.city_id).filter(UserInfo.user_id == user_id)
+        except Exception as error:
+            print('не получилось узнать user name. Проблема с БД.')
+        finally:
+            session.close()
+        values = q[0]
+        sex = values[1]
+        age_from = values[2]
+        age_to = values[3]
+        status = values[4]
+        city_id = values[5]
 
+        param = {'city_id': city_id, 'sex': sex, 'age_from': age_from, 'age_to': age_to, 'status': status}
+        with vk_api.VkRequestsPool(self.app_session.get_api()) as pool:  # self.app_session
+            request = pool.method('users.search', param)
+        if request.error == True:
+            return False
+        else:
+            city = request.result
+            count = city['count']
+        pass
 
-    # def get_sex(self):
-    #     message = "Укажи 1 если ищешь женщину своей мечты, укажи 2 если хочешь быть, как за каменной стеной. И скорее жми на следющую кнопку"
-    #     self.send_message(user_id, message)
-    #     self.do_data_for_search(text)
-    #     keyboard.add_button(label="AGE", color=VkKeyboardColor.POSITIVE)
-    #     self.send_message(user_id, "Задай возрастной интервал, например в формате  18-22", keyboard=keyboard)
-    #
-    # def get_age(self):
-    #     self.do_data_for_search(text)
-    #     keyboard.add_button(label="AGE", color=VkKeyboardColor.POSITIVE)
-    #     self.send_message(user_id, "Задай возрастной интервал, например в формате  18-22", keyboard=keyboard)
+    def get_age(self, user_id):
+        keyboard = VkKeyboard()
+        keyboard.add_button(label="от 18 до 21", color=VkKeyboardColor.PRIMARY)
+        keyboard.add_button(label="от 22 до 25", color=VkKeyboardColor.PRIMARY)
+        keyboard.add_line()
+        keyboard.add_button(label="от 30 до 35", color=VkKeyboardColor.PRIMARY)
+        keyboard.add_button(label="от 36 до 40", color=VkKeyboardColor.PRIMARY)
+        keyboard.add_line()
+        keyboard.add_button(label="от 41 до 50", color=VkKeyboardColor.PRIMARY)
+        keyboard.add_button(label="от 50 до 65", color=VkKeyboardColor.PRIMARY)
+        keyboard = keyboard.get_keyboard()
+        self.send_message(user_id, "Выбирай возраст и переходи к поиску", keyboard=keyboard)
 
 
     def tell_hello(self, user_id):
         """
-        Сказать приветственное слово
+        Сказать приветственное слово, когда пользователь впервые в чат боте
         :param user_id:
         :return:
         """
@@ -376,9 +493,11 @@ class LongPollBot(BaseBot):
         keyboard.add_line()
         keyboard.add_button(label="FINISH", color=VkKeyboardColor.NEGATIVE)
         keyboard = keyboard.get_keyboard()
-        start_message = "Hello, I'm Chat Bot"
+        start_message = "Привет я учебный Чат Бот. Создан, чтобы найти для тебя вторую половину твоей мечты! " \
+                        "Скорее жми START"
         self.send_message(user_id, start_message)
-        self.send_message(user_id, "Ты можешь выбрать команду Start или Finish. Список всех доступных команд доступен по справке Help", keyboard=keyboard)
+        self.send_message(user_id, "Ты можешь выбрать команду Start или Finish. Список всех возможных команд "
+                                   "доступен по справке Help", keyboard=keyboard)
 
     def tell_start(self, user_id, request):
         """
@@ -398,12 +517,45 @@ class LongPollBot(BaseBot):
         keyboard = keyboard.get_keyboard()
         self.send_message(user_id, "Выбери, кого ищем?", keyboard=keyboard)
 
-    def tell_help(self):
+    def tell_help(self, user_id):
+        """Отправляет сообщение при вводе команды HELP"""
+
         message = "Это учебный чат бот, целью которого является поиск второй половины по заданным параметрам. " \
                   "\n\tВы можете добавлять человека в черный список. \n\tЧат бот гарантирует, что люди, которые вас не " \
                   "заинтересовали, не будут повторяться. \n\tБот старается искать человека и по общим интересам, например" \
-                  "музыка, хобби и прочее.\n\n\tВ любой момент вы можете ввести команду FINISH и остановить Бот."
+                  "музыка, хобби и прочее.\n\n\tВ любой момент вы можете ввести команду FINISH и остановить Бот.\n\n " \
+                  "Доступные команды: START, FINISH  \n\n В любой момент вы можете изменить критерии поиска. Для этого" \
+                  "нужно снова ввести команду START"
         self.send_message(user_id, message)
+
+    def tell_goodbye(self, user_id):
+        """Отправляет сообщение при вводе команды FINISH"""
+
+        message = "Буду снова рад видеть тебя"
+        self.send_message(user_id, message)
+
+    def not_found_sity(self, user_id, name_us):
+        """Отправляет сообщение пользователю о неудачном поиске города"""
+
+        message = f'{name_us} Данный город не найден в базе VK. повторите команду. ' \
+                  f'Первым словом должна быть указана страна, а потом "город". Например, Россия Москва.'
+        self.send_message(user_id, message)
+
+    def tell_error(self, user_id):
+        """Отправляет сообщение при вводе команды FINISH"""
+
+        message = "Возникла ошибка, напишите разработчику, чтобы он ее исправил"
+        self.send_message(user_id, message)
+
+    def tell_find_city(self, user_id, name_us):
+        """Отправляет сообщение о необходимости выбора города"""
+
+        message = f'{name_us} укажи название страны, а затем название города. Например, Россия Москва или ' \
+              f'Белоруссия Брест.'
+        self.send_message(user_id, message)
+
+
+
 
     #database.getCitiesById
 
@@ -411,6 +563,72 @@ class LongPollBot(BaseBot):
     #        friends = pool.method('friends.get')
      #       status = pool.method('status.get')
   #USER_ONLINE
+
+# class VKCustomer:
+#     URL_BASE = 'https://api.vk.com/method/'
+#     URL_REDIRECT = 'https://oauth.vk.com/blank.html'
+#     URL_AUTH = 'https://oauth.vk.com/authorize/'
+#     client_id = 51496983
+#     METHOD_GET_PHOTOS = 'photos.get'
+#
+#     METHOD_SET_SERVER = 'groups.getLongPollServer'
+#     FRIENDS = 'friends'
+#     PHOTOS = 'photos'
+#     AUDIO = 'audio'
+#     WALL = 'wall'
+#     STORIES = 'stories'
+#     SCOPE_LIST: list[str] = [FRIENDS, PHOTOS, AUDIO, WALL, STORIES]
+#     SCOPE: str = ','.join(SCOPE_LIST)
+#     PROTOCOL_VERSION = '5.131'
+#
+#     def __init__(self, user_id):
+#         self.user_id = user_id
+#         self.token = ''
+#
+#     def get_token(self):
+#         param = {
+#             "client_id": self.client_id,
+#             "redirect_uri": self.URL_REDIRECT,
+#             "display": 'page',
+#             "scope": self.SCOPE,
+#             "response_type": "token"
+#         }
+#         print('')
+#         webbrowser.open('?'.join((self.URL_AUTH, urlencode(param))), new=1)
+#         responce = requests.get(self.URL_AUTH, param)
+#         url_back = input('вставьте скопированную строку из открывшейся страницы:')
+#         url_main = responce.url
+#         print(url_main)
+#         strange = urlparse(url_back)
+#         str_with_token = strange[5]
+#         list_with_token = str_with_token.split('&')
+#         token = list_with_token[0]
+#         token = token.replace('access_token=', '')
+#         self.token = token
+#         print(self.token )
+#         print('токен сохранен')
+#
+#
+#     def __get_url__(self, name_method) -> str:
+#         return f'{self.URL_BASE}{name_method}'
+#
+#     def get_photos(self):
+#         url = self.__get_url__(self.METHOD_GET_PHOTOS)
+#         album_ID = ['wall', 'profile', 'saved']
+#         param = {
+#             'access_token': self.token,
+#             'owner_id': self.user_id,
+#             'album_id': album_ID[1],
+#             'extended': '1',
+#             'photo_sizes': '1',
+#             'v': self.PROTOCOL_VERSION
+#         }
+#
+#         response = requests.get(url, param)
+#         response.json()
+#         print('Фото успешно получены')
+
+
 
 bot = LongPollBot()
 bot.do_listen()
