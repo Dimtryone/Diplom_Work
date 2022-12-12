@@ -163,7 +163,7 @@ class BaseBot:
 
         DSN = f"postgresql://{username}:{password_BD}@{name_host}:{num_host}/{name_BD}"
         engine = sqlalchemy.create_engine(DSN, echo=True, future=True)
-        create_tables(engine)  # - деактивировать код по очистке и созданию таблиц в БД
+        #create_tables(engine)  # - деактивировать код по очистке и созданию таблиц в БД
         Session = sessionmaker(bind=engine)
         session = Session()
 
@@ -267,8 +267,10 @@ class LongPollBot(BaseBot):
                 if name_us != [] and text in self.AGIES:
                     flag = self.set_age_for_search(user_id, text)
                     if flag == True:
-                        self.find_people(user_id)
-                        self.show_people(user_id)
+                        if self.find_people(user_id):
+                            self.show_people(user_id)
+                        else:
+                            self.tell_error(user_id)
                     else:
                         self.tell_error(user_id)
                 if name_us != [] and text == "БОЛЬШЕ ФОТО" and self.timestamp_person != []:
@@ -378,7 +380,7 @@ class LongPollBot(BaseBot):
         """Изменяет город, когда пользователь решит изменить кретерии поиска"""
 
         text = int(text)
-        self.set_city_for_search(text, user_id)
+        self.set_city_for_search(text, user_id, name_us)
         message = f'{name_us} город для поиска изменен.'
         self.send_message(user_id, message)
 
@@ -461,20 +463,19 @@ class LongPollBot(BaseBot):
 
         session = self.get_session_DB()
         try:
-            query = session.query(ValueSearch.sex, ValueSearch.age_from, ValueSearch.age_to, ValueSearch.status,
-                                  ValueSearch.city_id).filter(UserInfo.user_id == user_id)
+            for query in session.query(ValueSearch.sex, ValueSearch.age_from, ValueSearch.age_to, ValueSearch.status,
+                                  ValueSearch.city_id).filter(ValueSearch.user_id == user_id):
+                sex = query[0]
+                age_from = query[1]
+                age_to = query[2]
+                status = query[3]
+                city_id = query[4]
         except Exception as error:
             print('не получилось узнать user name. Проблема с БД.')
         finally:
             session.close()
-        value = query[0]
-        sex = str(value[0])
-        age_from = value[1]
-        age_to = value[2]
-        status = value[3]
-        city_id = value[4]
-        fields = {'has_photo': 1, 'education': 'education', 'about': 'about', 'bdate': 'bdate'}
 
+        fields = {'has_photo': 1, 'education': 'education', 'about': 'about', 'bdate': 'bdate'}
         param = {'city': city_id, 'sex': sex, 'age_from': age_from, 'age_to': age_to, 'status': status, 'offset': '15',
                  'fields': fields}
         with vk_api.VkRequestsPool(self.app_session.get_api()) as pool:  # self.app_session
