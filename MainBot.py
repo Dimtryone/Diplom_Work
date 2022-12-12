@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 from models import create_tables, UserInfo, ValueSearch, BlackList
 
 
-
 class BaseBot:
     """
     Базовый класс бота VK, отправка сообщений, сохранение о пользователе информации в БД авторизация
@@ -28,9 +27,8 @@ class BaseBot:
         self.vk_session = self.get_auth_group()
         self.app_session = self.get_auth_app()
         self.token_app = ''
-        if self.vk_session is not None: #and self.app_session is not None:
+        if self.vk_session is not None:  # and self.app_session is not None:
             self.authorized = True
-
 
     def get_tokens(self):
         """
@@ -42,7 +40,7 @@ class BaseBot:
         with open(path, 'r', encoding='utf-8') as file:
             parametrs = list(map(str.strip, file.readlines()))
             token_dict['TOKEN_GROUP'] = parametrs[1]
-            token_dict['ID_APP']  = parametrs[4]
+            token_dict['ID_APP'] = parametrs[4]
             token_dict['username'] = parametrs[8]
             token_dict['password_BD'] = parametrs[9]
             token_dict['name_BD'] = parametrs[10]
@@ -51,7 +49,6 @@ class BaseBot:
             token_dict['ID_US'] = parametrs[14]
             token_dict['PASSWORD_US'] = parametrs[15]
         return token_dict
-
 
     def get_auth_group(self):
         """
@@ -67,7 +64,6 @@ class BaseBot:
             print('Unable to connect to the API_VK')
             return None
 
-
     def get_auth_app(self):
         """
         Авторизация приложения для поиска людей. Использует переменную ID_APP, ее получаем из файла
@@ -80,7 +76,6 @@ class BaseBot:
             return self.app_session
         except Exception or vk_api.AuthError as error_msg:
             print('error AuthError')
-
 
     def get_token_app(self):
         """для получения токена, из url копируется вручную, далее программа сама декомпозирует строку и сохраняет токен"""
@@ -115,7 +110,6 @@ class BaseBot:
         print('токен сохранен')
         return self.token_app
 
-
     def send_message(self, user_id, message, keyboard=None):
         """
          Отправка сообщения от лица авторизованного пользователя
@@ -129,7 +123,7 @@ class BaseBot:
             return
         if keyboard != None:
             param = {"user_id": user_id, "message": message, "random_id": random.randint(1, 10000),
-                        "keyboard": keyboard}
+                     "keyboard": keyboard}
         else:
             param = {"user_id": user_id, "message": message, "random_id": random.randint(1, 10000)}
 
@@ -138,7 +132,6 @@ class BaseBot:
             print(f"Сообщение отправлено для ID {user_id} с текстом: {message}")
         except Exception as error:
             print("Failed to send massage")
-
 
     def get_info_user(self, user_id):
         """
@@ -152,7 +145,6 @@ class BaseBot:
             return False
         else:
             return request
-
 
     def save_database(self, request):
         """
@@ -171,14 +163,14 @@ class BaseBot:
 
         DSN = f"postgresql://{username}:{password_BD}@{name_host}:{num_host}/{name_BD}"
         engine = sqlalchemy.create_engine(DSN, echo=True, future=True)
-        create_tables(engine)  #- деактивировать код по очистке и созданию таблиц в БД
+        create_tables(engine)  # - деактивировать код по очистке и созданию таблиц в БД
         Session = sessionmaker(bind=engine)
         session = Session()
 
         sex_id = {1: "женский", 2: "мужской", 3: "пол не указан"}
         relation_id = {1: 'не женат/не замужем', 2: 'есть друг/есть подруга', 3: 'помолвлен/помолвлена',
-                    4: 'женат/замужем', 5: 'всё сложно', 6: 'в активном поиске', 7: 'влюблён/влюблена',
-                    8: 'в гражданском браке', 0: 'не указано'}
+                       4: 'женат/замужем', 5: 'всё сложно', 6: 'в активном поиске', 7: 'влюблён/влюблена',
+                       8: 'в гражданском браке', 0: 'не указано'}
 
         first_name = request[0].get('first_name')
         last_name = request[0].get('last_name')
@@ -194,8 +186,10 @@ class BaseBot:
         relation = relation_id.get(relation)
         cities = request[0].get('city')
         city = cities.get('title')
-        user = UserInfo(first_name=first_name, last_name=last_name, user_id=user_id, sex=sex, movies=movies, music=music,
-                        relation=relation, interests=interests, university_name=university_name, faculty_name=faculty_name,
+        user = UserInfo(first_name=first_name, last_name=last_name, user_id=user_id, sex=sex, movies=movies,
+                        music=music,
+                        relation=relation, interests=interests, university_name=university_name,
+                        faculty_name=faculty_name,
                         city=city)
         session.add_all([user])
         value = ValueSearch(user_id=user_id)
@@ -219,14 +213,12 @@ class LongPollBot(BaseBot):
     COUNTRIES = ['РОССИЯ', 'БЕЛОРУССИЯ', 'УКРАИНА', 'РОС', 'РОСИЯ', 'БЕЛ', 'БЕЛОРУСИЯ', 'УКР']
     AGIES = ["ОТ 18 ДО 21", "ОТ 22 ДО 25", "ОТ 30 ДО 35", "ОТ 36 ДО 40", "ОТ 41 ДО 50", "ОТ 50 ДО 65"]
 
-
     def __init__(self):
         super(LongPollBot, self).__init__()
         self.longpoll = VkLongPoll(self.vk_session)
         self.PEOPLE_FOUND = {}
         self.timestamp_id = 0
         self.timestamp_person = []
-
 
     def do_listen(self):
         """
@@ -285,9 +277,8 @@ class LongPollBot(BaseBot):
                     self.show_people(user_id)
                 if name_us != [] and text == "В ЧЕРНЫЙ СПИСОК" and self.timestamp_id != '':
                     self.set_black_list(user_id)
-                if name_us != [] and text not in self.COMMANDS and text not in self.KEYBOARDS and text not in self.COUNTRIES and text not in self.AGIES:
+                if name_us != [] and text.isdigit() == False and text not in self.COMMANDS and text not in self.KEYBOARDS and text not in self.AGIES and text.split()[0] not in self.COUNTRIES:
                     self.tell_something(user_id, name_us)
-
 
     def get_name_user_from_DB(self, user_id):
         """Функция проверяет наличие пользователя в нашей БД. User_id уникальный, поэтому поиска выдаст одно значение."""
@@ -304,7 +295,6 @@ class LongPollBot(BaseBot):
             name_us = name_us[0][0]
         return name_us
 
-
     def get_city_id_from_DB(self, user_id):
         """Функция проверяет наличие city_id в нашей БД. User_id уникальный, поэтому поиска выдаст одно значение."""
 
@@ -320,7 +310,6 @@ class LongPollBot(BaseBot):
             city_id = q[0][0]
         return city_id
 
-
     def get_session_DB(self):
         token_dict = self.get_tokens()
         username = token_dict["username"]
@@ -334,7 +323,6 @@ class LongPollBot(BaseBot):
         session = Session()
         return session
 
-
     def set_sex_for_search(self, user_id, text):
         """Сохранение в БД параметра поиска пол второй половины"""
 
@@ -343,7 +331,8 @@ class LongPollBot(BaseBot):
         if text == "ЖЕНЩИНА":
             sex = 1
         session = self.get_session_DB()
-        session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update({"sex": sex}, synchronize_session='fetch')
+        session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update({"sex": sex},
+                                                                                 synchronize_session='fetch')
         try:
             session.commit()
         except Exception as error:
@@ -351,7 +340,6 @@ class LongPollBot(BaseBot):
             self.send_message(user_id, message)
         finally:
             session.close()
-
 
     def set_status_for_search(self, user_id, text):
         """Сохранение в БД параметра поиска статус"""
@@ -368,7 +356,6 @@ class LongPollBot(BaseBot):
             self.send_message(user_id, message)
         finally:
             session.close()
-
 
     def set_city_for_search(self, city_id, user_id, name_us):
         """ Сохранение в БД параметра поиска город (идентификатор VK)"""
@@ -387,7 +374,6 @@ class LongPollBot(BaseBot):
         finally:
             session.close()
 
-
     def change_city_for_search(self, user_id, name_us, text):
         """Изменяет город, когда пользователь решит изменить кретерии поиска"""
 
@@ -396,7 +382,6 @@ class LongPollBot(BaseBot):
         message = f'{name_us} город для поиска изменен.'
         self.send_message(user_id, message)
 
-
     def set_age_for_search(self, user_id, text):
         """Сохранение в БД параметра поиска возраст. API VK: age_from, age_to"""
 
@@ -404,8 +389,9 @@ class LongPollBot(BaseBot):
         age_from = int(text[1])
         age_to = int(text[3])
         session = self.get_session_DB()
-        session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update({"age_from": age_from, "age_to": age_to},
-                                                                                 synchronize_session='fetch')
+        session.query(ValueSearch).filter(ValueSearch.user_id == user_id).update(
+            {"age_from": age_from, "age_to": age_to},
+            synchronize_session='fetch')
         try:
             session.commit()
             return True
@@ -415,7 +401,6 @@ class LongPollBot(BaseBot):
             return False
         finally:
             session.close()
-
 
     def tell_choice_status(self, user_id):
         """Формирование параметра запроса пользователя (статус второй половины)"""
@@ -429,16 +414,16 @@ class LongPollBot(BaseBot):
         keyboard = keyboard.get_keyboard()
         self.send_message(user_id, "Выбери доступный статус для поиска", keyboard=keyboard)
 
-
     def find_city(self, text, user_id):
         """определяет идентификатор города из БД VK"""
 
         text = text.split()
         q = ' '.join(text[1:])
-        countries = {'РОССИЯ': 1, 'БЕЛОРУССИЯ': 3, 'УКРАИНА': 2, 'РОС': 1, 'БЕЛ': 3, 'УКР': 2, 'РОСИЯ': 1, 'БЕЛОРУСИЯ': 3}
+        countries = {'РОССИЯ': 1, 'БЕЛОРУССИЯ': 3, 'УКРАИНА': 2, 'РОС': 1, 'БЕЛ': 3, 'УКР': 2, 'РОСИЯ': 1,
+                     'БЕЛОРУСИЯ': 3}
         country_id = countries[text[0]]
         param = {'country_id': country_id, 'q': q}
-        with vk_api.VkRequestsPool(self.app_session.get_api()) as pool:  #  self.app_session
+        with vk_api.VkRequestsPool(self.app_session.get_api()) as pool:  # self.app_session
             request = pool.method('database.getCities', param)
         if request.error == True:
             return False
@@ -449,7 +434,7 @@ class LongPollBot(BaseBot):
                 return city['items'][0]['id']
             else:
                 message = f'Результат поиска выдал {count} городов с похожим названием. Внимательно изучите список ниже и пришлите' \
-                          ' сообщение в формате "ID цифры", Например, "id 113056". или пришлите сообщение ОТКАЗАТЬСЯ ОТ ГОРОДА.'
+                          ' сообщение ID необходимого города, Например, "113056".'
                 self.send_message(user_id, message)
                 for item in city['items']:
                     country = item.get('country')
@@ -464,10 +449,12 @@ class LongPollBot(BaseBot):
                     if region != None or area != None:
                         message = f'id города {title}: {id}, регион: {region}, область {area}'
                         self.send_message(user_id, message)
+                    if country == None and region == None and area == None:
+                        message = f'id города {title}: {id}, регион и область отсутствует'
+                        self.send_message(user_id, message)
                     else:
                         continue
                 return True
-
 
     def find_people(self, user_id):
         """Функция ищет людей по заданным параметрам."""
@@ -486,7 +473,7 @@ class LongPollBot(BaseBot):
         age_to = value[2]
         status = value[3]
         city_id = value[4]
-        fields = {'has_photo': 1, 'photo_400_orig': 'photo_400_orig', 'bdate': 'bdate'}
+        fields = {'has_photo': 1, 'education': 'education', 'about': 'about', 'bdate': 'bdate'}
 
         param = {'city': city_id, 'sex': sex, 'age_from': age_from, 'age_to': age_to, 'status': status, 'offset': '15',
                  'fields': fields}
@@ -501,17 +488,18 @@ class LongPollBot(BaseBot):
                 if item.get('can_access_closed') == True:
                     first_name = item.get('first_name')
                     last_name = item.get('last_name')
-                    photo_400_orig = item.get('photo_400_orig')
+                    university_name = item.get('university_name', 'Информации об университете нет')
+                    faculty_name = item.get('faculty_name', 'Информации о факультете нет')
+                    about = item.get('about', 'Информации о себе нет')
                     id = item.get('id')
                     url_person = 'https://vk.com/id' + str(id)
                     bdate = item.get('bdate')
-                    self.PEOPLE_FOUND[id] = [first_name, last_name, photo_400_orig, bdate, url_person]
+                    self.PEOPLE_FOUND[id] = [first_name, last_name, university_name, faculty_name, about, bdate, url_person]
             flag = self.find_popular_photo()
             if flag == True:
                 return True
             else:
                 return False
-
 
     def find_popular_photo(self):
         """Функция находит популярные 3 фотографии пользователя"""
@@ -524,32 +512,30 @@ class LongPollBot(BaseBot):
                 continue
             else:
                 photos = request.result
+                result_photos = []
                 if photos['count'] > 2:
                     links_photos = {}
                     likes = []
                     for item in photos['items']:
                         like = item['likes']['count']
                         likes.append(like)
-                        for size in item["sizes"]:
-                            if size.get("type") == "x":
-                                link_photo = size.get('url')
-                                links_photos[like] = link_photo
+                        id_photo = item["id"]
+                        link_photo = f'https://vk.com/id{key}?z=photo{key}_{id_photo}%2Fphotos{key}'
+                        links_photos[like] = link_photo
+
                     likes.sort(reverse=True)
-                    result_photos = []
                     index = 0
                     for i in range(3):
                         link = links_photos[likes[index]]
                         result_photos.append(link)
                         index += 1
                 else:
-                    result_photos = []
-                    for size in item["sizes"]:
-                        if size.get("type") == "x":
-                            link_photo = size.get('url')
-                            result_photos.append(link_photo)
+                    for item in photos['items']:
+                        id_photo = item["id"]
+                        link_photo = f'https://vk.com/id{key}?z=photo{key}_{id_photo}%2Fphotos{key}'
+                        result_photos.append(link_photo)
             value.append(result_photos)
         return True
-
 
     def show_people(self, user_id):
         """Показывает пользователю из результата поиска людей. Во временную переменную присваивается id
@@ -564,10 +550,14 @@ class LongPollBot(BaseBot):
         if self.check_person_in_black_list(user_id, self.timestamp_id):
             first_name = person[0]
             last_name = person[1]
-            photo_400_orig = person[2]
-            url_person = person[4]
-            bdate = person[3]
-            message = f'{first_name} {last_name} ссылка на профиль {url_person} дата рождения {bdate} \n фото: \n{photo_400_orig}'
+            university_name = person[2]
+            faculty_name = person[3]
+            about = person[4]
+
+            url_person = person[6]
+            bdate = person[5]
+            message = f'{first_name} {last_name} ссылка на профиль {url_person} \n дата рождения {bdate} \n ' \
+                      f'о себе: {about}\n университет {university_name}\n факультет {faculty_name}'
             keyboard = VkKeyboard()
             keyboard.add_button(label="Дальше", color=VkKeyboardColor.PRIMARY)
             keyboard.add_button(label="Больше фото", color=VkKeyboardColor.POSITIVE)
@@ -584,22 +574,21 @@ class LongPollBot(BaseBot):
                 self.find_people(user_id)
             self.show_people(user_id)
 
-
     def show_more_photos(self, user_id):
         """Функция показывает по команде "Больше фото" пользователю больше фотографий"""
 
         person = self.timestamp_person
-        photos = person[5]
+        photos = person[7]
         for photo in photos:
             message = {photo}
             self.send_message(user_id, message)
-
 
     def set_black_list(self, user_id):
         """Функция помещает id пользователя в таблицу с черным списком"""
 
         session = self.get_session_DB()
-        value = BlackList(block_user_id=self.timestamp_id, users_id=session.query(UserInfo.user_id).filter(UserInfo.user_id == user_id))
+        value = BlackList(block_user_id=self.timestamp_id,
+                          users_id=session.query(UserInfo.user_id).filter(UserInfo.user_id == user_id))
         session.add_all([value])
         try:
             session.commit()
@@ -609,7 +598,6 @@ class LongPollBot(BaseBot):
             return False
         finally:
             session.close()
-
 
     def check_person_in_black_list(self, user_id, black_user_id):
         """Функция проверяет есть ли id в черном списке"""
@@ -631,7 +619,6 @@ class LongPollBot(BaseBot):
                 else:
                     return True
 
-
     def get_age(self, user_id):
         """Отображает кнопки выбора возраста"""
 
@@ -646,7 +633,6 @@ class LongPollBot(BaseBot):
         keyboard.add_button(label="от 50 до 65", color=VkKeyboardColor.PRIMARY)
         keyboard = keyboard.get_keyboard()
         self.send_message(user_id, "Выбирай возраст и переходи к поиску", keyboard=keyboard)
-
 
     def tell_hello(self, user_id):
         """
@@ -666,7 +652,6 @@ class LongPollBot(BaseBot):
         self.send_message(user_id, "Ты можешь выбрать команду Start или Finish. Список всех возможных команд "
                                    "доступен по справке Help", keyboard=keyboard)
 
-
     def tell_start(self, user_id, request):
         """
         Начать работу с пользователем
@@ -677,7 +662,7 @@ class LongPollBot(BaseBot):
         name = request.result[0]['first_name']
         message = f'{name} мой учебный чат бот поможе найти тебе вторую половину. Заполни парметры, после ты сможешь выполнить поиск по ВК.'
         self.send_message(user_id, message)
-        message = f'Для это, {name}, тебе придется задать параметры для поиска.'
+        message = f'Для этого, {name}, тебе придется задать параметры для поиска.'
         self.send_message(user_id, message)
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button(label="Мужчина", color=VkKeyboardColor.POSITIVE)
@@ -685,25 +670,27 @@ class LongPollBot(BaseBot):
         keyboard = keyboard.get_keyboard()
         self.send_message(user_id, "Выбери кого ищем?", keyboard=keyboard)
 
-
     def tell_help(self, user_id):
         """Отправляет сообщение при вводе команды HELP"""
 
         message = "Это учебный чат бот, целью которого является поиск второй половины по заданным параметрам. " \
                   "\n\tВы можете добавлять человека в черный список. \n\tЧат бот гарантирует, что люди, которые вас не " \
-                  "заинтересовали, не будут повторяться. \n\tБот старается искать человека и по общим интересам, например" \
+                  "заинтересовали, не будут повторяться. \n\tБот старается искать человека и по общим интересам, например, " \
                   "музыка, хобби и прочее.\n\n\tВ любой момент вы можете ввести команду FINISH и остановить Бот.\n\n " \
-                  "Доступные команды: START, FINISH  \n\n В любой момент вы можете изменить критерии поиска. Для этого" \
-                  "нужно снова ввести команду START"
+                  "Доступные команды: START, FINISH  \n\n В любой момент вы можете изменить критерии поиска. Для этого " \
+                  "нужно снова ввести команду START. Поиск осуществляется только по странам России, Украины и Белоруссии."
         self.send_message(user_id, message)
-
+        keyboard = VkKeyboard()
+        keyboard.add_button(label="START", color=VkKeyboardColor.POSITIVE)
+        keyboard.add_button(label="FINISH", color=VkKeyboardColor.NEGATIVE)
+        keyboard = keyboard.get_keyboard()
+        self.send_message(user_id, "Выбирай команду", keyboard=keyboard)
 
     def tell_goodbye(self, user_id):
         """Отправляет сообщение при вводе команды FINISH"""
 
         message = "Буду снова рад видеть тебя"
         self.send_message(user_id, message)
-
 
     def not_found_city(self, user_id, name_us):
         """Отправляет сообщение пользователю о неудачном поиске города"""
@@ -712,21 +699,18 @@ class LongPollBot(BaseBot):
                   f'Первым словом должна быть указана страна, а потом "город". Например, Россия Москва.'
         self.send_message(user_id, message)
 
-
     def tell_error(self, user_id):
         """Отправляет сообщение при вводе команды FINISH"""
 
         message = "Возникла ошибка, напишите разработчику, чтобы он ее исправил"
         self.send_message(user_id, message)
 
-
     def tell_find_city(self, user_id, name_us):
         """Отправляет сообщение о необходимости выбора города"""
 
         message = f'{name_us} укажи название страны, а затем название города. Например, Россия Москва или ' \
-              f'Белоруссия Брест.'
+                  f'Белоруссия Брест.'
         self.send_message(user_id, message)
-
 
     def tell_something(self, user_id, name_us):
         """Функция ответчает на невалидные запросы пользователя, который уже пользовался Чат Ботом"""
@@ -739,8 +723,12 @@ class LongPollBot(BaseBot):
         index = random.randint(0, 3)
         message = messages[index]
         self.send_message(user_id, message)
+        keyboard = VkKeyboard()
+        keyboard.add_button(label="START", color=VkKeyboardColor.POSITIVE)
+        keyboard.add_button(label="FINISH", color=VkKeyboardColor.NEGATIVE)
+        keyboard = keyboard.get_keyboard()
+        self.send_message(user_id, "Выбирай команду", keyboard=keyboard)
 
 
 bot = LongPollBot()
 bot.do_listen()
-
