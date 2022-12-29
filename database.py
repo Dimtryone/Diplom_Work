@@ -131,8 +131,7 @@ class DataBase:
         """Добавление в БД id страниц, которые показывались пользователю"""
 
         session = self.get_session_DB()
-        value = ShowingUser(show_user_id=show_user_id,
-                          users_id=session.query(UserInfo.user_id).filter(UserInfo.user_id == user_id))
+        value = ShowingUser(show_user_id=show_user_id, users_id=session.query(UserInfo.user_id).where(UserInfo.user_id == user_id))
         session.add_all([value])
         try:
             session.commit()
@@ -149,7 +148,7 @@ class DataBase:
 
         session = self.get_session_DB()
         try:
-            query = session.query(BlackList.block_user_id).filter(BlackList.users_id == user_id)
+            query = session.query(BlackList.block_user_id).where(BlackList.users_id == user_id)
         except Exception as error:
             print('не получилось узнать user name. Проблема с БД.')
             return False
@@ -159,11 +158,14 @@ class DataBase:
         if result == []:
             return True
         else:
+            Flag = True
             for answer in result:
-                if answer == black_user_id:
-                    return False
-                else:
-                    return True
+                if answer[0] == black_user_id:
+                    Flag = False
+            if Flag == False:
+                return False
+            else:
+                 return True
 
 
     def check_in_swowing_list(self, user_id, show_user_id):
@@ -171,7 +173,7 @@ class DataBase:
 
         session = self.get_session_DB()
         try:
-            query = session.query(ShowingUser.show_user_id).filter(ShowingUser.users_id == user_id)
+            query = session.query(ShowingUser.show_user_id).where(ShowingUser.users_id == user_id)
         except Exception as error:
             print('не получилось узнать user name. Проблема с БД.')
             return False
@@ -181,11 +183,14 @@ class DataBase:
         if result == []:
             return True
         else:
+            Flag = True
             for answer in result:
-                if answer == show_user_id:
-                    return False
-                else:
-                    return True
+                if answer[0] == show_user_id:
+                    Flag = False
+            if Flag == False:
+                return False
+            else:
+                 return True
 
 
 

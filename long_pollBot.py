@@ -293,8 +293,8 @@ class LongPollBot(BaseBot, DataBase):
                         like = item['likes']['count']
                         likes.append(like)
                         id_photo = item["id"]
-                        link_photo = f'https://vk.com/id{key}?z=photo{key}_{id_photo}%2Fphotos{key}'
-                        links_photos[like] = link_photo
+                        link_photo_attachment = f'photo{key}_{id_photo}'
+                        links_photos[like] = link_photo_attachment
                     likes.sort(reverse=True)
                     index = 0
                     for i in range(3):
@@ -304,8 +304,8 @@ class LongPollBot(BaseBot, DataBase):
                 else:
                     for item in photos['items']:
                         id_photo = item["id"]
-                        link_photo = f'https://vk.com/id{key}?z=photo{key}_{id_photo}%2Fphotos{key}'
-                        result_link_photos.append(link_photo)
+                        link_photo_attachment = f'photo{key}_{id_photo}'
+                        result_link_photos.append(link_photo_attachment)
             value.append(result_link_photos)
         return True
 
@@ -351,9 +351,14 @@ class LongPollBot(BaseBot, DataBase):
 
         person = self.timestamp_person
         photos = person[7]
+        messages = ['крутая?', 'нравится?', 'показать еще?', 'в профиле еще больше фото', 'классное фото!',
+                    'не понравилось? смотри другого кандидата!', 'в профиле можно на все фотки посмотреть ;)',
+                    'интересно фото', 'что эти хотел сказать автор?', 'давай закомься!', 'фотка огонь!',
+                    'я бы такое не выкладывал...']
         for photo in photos:
-            message = f'{photo}'
-            self.send_message(user_id, message)
+            attachment = photo
+            message = messages[random.randint(0, 11)]
+            self.send_message(user_id, message, attachment=attachment)
 
 
     def get_keyboard_start_finish_help(self, change=None):
